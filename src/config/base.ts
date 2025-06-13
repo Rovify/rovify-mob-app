@@ -1,52 +1,23 @@
-// Base network configuration for buildathon
 export const BASE_CONFIG = {
-  // Base Sepolia for development (buildathon)
-  chainId: 84532,
-  name: 'Base Sepolia',
-  nativeCurrency: {
+  CHAIN_ID: 8453, // Base Mainnet
+  CHAIN_NAME: 'Base',
+  RPC_URL: 'https://mainnet.base.org',
+  BLOCK_EXPLORER: 'https://basescan.org',
+  NATIVE_CURRENCY: {
     name: 'Ethereum',
     symbol: 'ETH',
     decimals: 18,
   },
-  rpcUrls: {
-    default: {
-      http: ['https://sepolia.base.org'],
-    },
-    public: {
-      http: ['https://sepolia.base.org'],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: 'BaseScan',
-      url: 'https://sepolia.basescan.org',
-    },
-  },
-  testnet: true,
 };
 
-// Base Mainnet configuration (for production)
-export const BASE_MAINNET_CONFIG = {
-  chainId: 8453,
-  name: 'Base',
-  nativeCurrency: {
+export const BASE_TESTNET = {
+  CHAIN_ID: 84532, // Base Sepolia
+  CHAIN_NAME: 'Base Sepolia',
+  RPC_URL: 'https://sepolia.base.org',
+  BLOCK_EXPLORER: 'https://sepolia-explorer.base.org',
+  NATIVE_CURRENCY: {
     name: 'Ethereum',
     symbol: 'ETH',
     decimals: 18,
   },
-  rpcUrls: {
-    default: {
-      http: ['https://mainnet.base.org'],
-    },
-    public: {
-      http: ['https://mainnet.base.org'],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: 'BaseScan',
-      url: 'https://basescan.org',
-    },
-  },
-  testnet: false,
 };

@@ -1,132 +1,104 @@
-import { useCallback } from 'react';
-import { Alert } from 'react-native';
+import { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
+import { BaseWalletService } from '../services/wallet/baseWallet';
 import { useAuthStore } from '../store/authStore';
 
 export const useAuth = () => {
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const {
-    user,
-    isConnecting,
     isAuthenticated,
-    error,
-    connection,
-    setConnecting,
-    setError,
-    setUser,
-    connectWallet,
-    disconnect,
+    address,
+    signer,
+    provider,
+    balance,
+    setAuthenticated,
+    setAddress,
+    setSigner,
+    setProvider,
+    setBalance,
+    clearAuth
   } = useAuthStore();
 
-  /**
-   * Mock wallet connection for buildathon demo
-   */
-  const handleConnectWallet = useCallback(async () => {
-    setConnecting(true);
+  const walletService = new BaseWalletService();
+
+  const connectWallet = async () => {
+    setIsConnecting(true);
     setError(null);
 
     try {
-      // For buildathon: simulate wallet connection
-      // In production, this would integrate with WalletConnect, MetaMask, etc.
+      const { address, signer, provider } = await walletService.connectWallet();
+      const balance = await walletService.getBalance(address);
 
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate connection delay
+      setAddress(address);
+      setSigner(signer);
+      setProvider(provider);
+      setBalance(balance);
+      setAuthenticated(true);
 
-      // Mock wallet data
-      const mockUser = {
-        address: '0x742d35Cc6323d37c3FC5a5E721B5D2b7B1E5E5c1', // Sample address
-        chainId: 8453, // Base chain ID
-        isConnected: true,
-        balance: '1.25', // Mock balance
-        ensName: undefined,
-        avatar: undefined,
-      };
-
-      setUser(mockUser);
-
-      console.log('✅ Mock wallet connected:', mockUser.address);
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
-      setError(errorMessage);
-      console.error('Wallet connection failed:', error);
-
-      Alert.alert(
-        'Connection Failed',
-        'Failed to connect wallet. Please try again.',
-        [{ text: 'OK' }]
-      );
+      console.log('✅ Wallet connected:', { address, balance });
+    } catch (err: any) {
+      setError(err.message);
+      console.error('❌ Wallet connection failed:', err);
     } finally {
-      setConnecting(false);
+      setIsConnecting(false);
     }
-  }, [setConnecting, setError, setUser]);
+  };
 
-  /**
-   * Handle wallet disconnection
-   */
-  const handleDisconnect = useCallback(() => {
-    Alert.alert(
-      'Disconnect Wallet',
-      'Are you sure you want to disconnect your wallet?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Disconnect',
-          style: 'destructive',
-          onPress: () => {
-            disconnect();
-            console.log('🔌 Wallet disconnected');
+  const disconnectWallet = async () => {
+    clearAuth();
+    console.log('🔌 Wallet disconnected');
+  };
+
+  const sendTransaction = async (to: string, amount: string) => {
+    if (!address) throw new Error('Wallet not connected');
+
+    try {
+      const txHash = await walletService.sendTransaction(to, amount);
+
+      // Update balance after transaction
+      const newBalance = await walletService.getBalance(address);
+      setBalance(newBalance);
+
+      return txHash;
+    } catch (error) {
+      console.error('Transaction failed:', error);
+      throw error;
+    }
+  };
+
+  // Auto-connect on mount if previously connected
+  useEffect(() => {
+    const autoConnect = async () => {
+      if (window.ethereum && !isAuthenticated) {
+        try {
+          const accounts = await window.ethereum.request({
+            method: 'eth_accounts'
+          });
+
+          if (accounts.length > 0) {
+            await connectWallet();
           }
-        },
-      ]
-    );
-  }, [disconnect]);
-
-  /**
-   * Get shortened address for display
-   */
-  const getShortAddress = useCallback(() => {
-    if (!user?.address) return null;
-    return `${user.address.slice(0, 6)}...${user.address.slice(-4)}`;
-  }, [user?.address]);
-
-  /**
-   * Mock signer for XMTP integration
-   */
-  const getMockSigner = useCallback(() => {
-    if (!user?.address) return null;
-
-    // For buildathon: return mock signer object
-    // In production, this would be actual ethers Signer
-    return {
-      address: user.address,
-      getAddress: async () => user.address,
-      signMessage: async (message: string) => {
-        console.log('Mock signing message:', message);
-        return '0x' + Math.random().toString(16).substr(2); // Mock signature
-      },
-      getChainId: async () => user.chainId,
+        } catch (error) {
+          console.log('Auto-connect failed:', error);
+        }
+      }
     };
-  }, [user]);
+
+    autoConnect();
+  }, [isAuthenticated]);
 
   return {
-    // State
-    user,
-    isConnecting,
     isAuthenticated,
+    address,
+    signer,
+    provider,
+    balance,
+    isConnecting,
     error,
-    connection,
-
-    // Computed values
-    address: user?.address || null,
-    shortAddress: getShortAddress(),
-    signer: getMockSigner(),
-    chainId: user?.chainId || null,
-
-    // Actions
-    connectWallet: handleConnectWallet,
-    disconnect: handleDisconnect,
-    setError,
-
-    // Utilities
-    isConnected: isAuthenticated,
-    isOnCorrectChain: user?.chainId === 8453, // Base mainnet
+    connectWallet,
+    disconnectWallet,
+    sendTransaction
   };
 };

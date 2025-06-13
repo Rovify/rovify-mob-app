@@ -5,164 +5,327 @@ import {
     ScrollView,
     TouchableOpacity,
     TextInput,
-    FlatList,
-    Image
+    FlatList
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { ScreenWrapper } from '../../src/components/layout/ScreenWrapper';
+import { AgentManager, Agent } from '../../src/services/agents/agentManager';
+import { useMessaging } from '../../src/hooks/useMessaging';
+import { getDeviceInfo, getDesignTokens } from '../../src/utils/responsive';
+import { CustomHeader } from '@/components/layout/Header';
 
-interface Agent {
-    id: string;
-    name: string;
-    description: string;
-    category: string;
-    price: string;
-    rating: number;
-    users: number;
-    image: string;
-    creator: string;
-}
-
-export default function AgentMarketplaceScreen() {
+export default function AgentMarketplace() {
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('All');
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-    const categories = ['All', 'Trading', 'Assistant', 'Gaming', 'Social', 'Utility'];
+    const device = getDeviceInfo();
+    const tokens = getDesignTokens();
+    const { startConversation } = useMessaging();
 
-    const agents: Agent[] = [
-        {
-            id: '1',
-            name: 'DeFi Master Trader',
-            description: 'Advanced trading strategies for DeFi protocols',
-            category: 'Trading',
-            price: '0.05 ETH',
-            rating: 4.8,
-            users: 1200,
-            image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=100',
-            creator: 'CryptoGuru'
-        },
-        {
-            id: '2',
-            name: 'Event Coordinator Pro',
-            description: 'Manages events, RSVPs, and logistics automatically',
-            category: 'Assistant',
-            price: 'Free',
-            rating: 4.6,
-            users: 890,
-            image: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=100',
-            creator: 'EventMaster'
-        },
-        {
-            id: '3',
-            name: 'Social Media Manager',
-            description: 'Automates social media posting and engagement',
-            category: 'Social',
-            price: '0.02 ETH',
-            rating: 4.7,
-            users: 2300,
-            image: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=100',
-            creator: 'SocialBot'
-        }
+    const agentManager = new AgentManager();
+    const allAgents = agentManager.getAllAgents();
+
+    const categories = [
+        { id: 'all', name: 'All', icon: 'apps' },
+        { id: 'trading', name: 'Trading', icon: 'trending-up' },
+        { id: 'events', name: 'Events', icon: 'calendar' },
+        { id: 'social', name: 'Social', icon: 'people' },
+        { id: 'utility', name: 'Utility', icon: 'construct' }
     ];
+
+    const filteredAgents = allAgents.filter(agent => {
+        const matchesSearch = agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            agent.description.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategory === 'all' || agent.category === selectedCategory;
+
+        return matchesSearch && matchesCategory;
+    });
+
+    const startChatWithAgent = async (agent: Agent) => {
+        try {
+            const conversation = await startConversation(agent.walletAddress, {
+                title: agent.name,
+                type: 'agent'
+            });
+
+            // Set up agent context
+            agentManager.startChatWithAgent(agent.id, conversation.topic);
+
+            router.push(`/chat/${conversation.topic}`);
+        } catch (error) {
+            console.error('Failed to start chat with agent:', error);
+        }
+    };
 
     const renderAgentCard = ({ item }: { item: Agent }) => (
         <TouchableOpacity
-            onPress={() => router.push(`/agent/${item.id}`)}
-            className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4"
+            onPress={() => startChatWithAgent(item)}
+            style={{
+                backgroundColor: 'white',
+                marginRight: tokens.spacing.md,
+                borderRadius: tokens.borderRadius.xl,
+                padding: tokens.spacing.md,
+                width: device.width * 0.8,
+                maxWidth: 300,
+                ...tokens.shadows.md
+            }}
         >
-            <View className="flex-row items-start">
-                <Image
-                    source={{ uri: item.image }}
-                    className="w-16 h-16 rounded-xl mr-4"
-                    resizeMode="cover"
-                />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: tokens.spacing.sm }}>
+                <View
+                    style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: tokens.borderRadius.lg,
+                        backgroundColor: '#FEF3C7',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: tokens.spacing.sm
+                    }}
+                >
+                    <Text style={{ fontSize: 24 }}>{item.avatar}</Text>
+                </View>
 
-                <View className="flex-1">
-                    <View className="flex-row items-center justify-between mb-2">
-                        <Text className="font-bold text-gray-900 text-lg flex-1" numberOfLines={1}>
-                            {item.name}
+                <View style={{ flex: 1 }}>
+                    <Text style={{
+                        fontSize: tokens.typography.lg,
+                        fontWeight: 'bold',
+                        color: '#1F2937',
+                        marginBottom: tokens.spacing.xs
+                    }}>
+                        {item.name}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: tokens.spacing.sm }}>
+                            <Ionicons name="star" size={14} color="#F59E0B" />
+                            <Text style={{ fontSize: tokens.typography.sm, color: '#6B7280', marginLeft: 2 }}>
+                                {item.rating}
+                            </Text>
+                        </View>
+                        <Text style={{ fontSize: tokens.typography.sm, color: '#6B7280' }}>
+                            {item.users} users
                         </Text>
-                        <Text className="text-orange-600 font-bold ml-2">{item.price}</Text>
                     </View>
+                </View>
 
-                    <Text className="text-gray-600 text-sm mb-3" numberOfLines={2}>
+                <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{
+                        fontSize: tokens.typography.sm,
+                        fontWeight: 'bold',
+                        color: item.price === 'Free' ? '#10B981' : '#F97316'
+                    }}>
+                        {item.price === 'Free' ? 'Free' : `${item.price} ETH`}
+                    </Text>
+                </View>
+            </View>
+
+            <Text style={{
+                fontSize: tokens.typography.sm,
+                color: '#6B7280',
+                marginBottom: tokens.spacing.sm,
+                lineHeight: 18
+            }}>
+                {item.description}
+            </Text>
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.xs }}>
+                {item.capabilities.slice(0, 3).map((capability) => (
+                    <View
+                        key={capability.id}
+                        style={{
+                            backgroundColor: '#F3F4F6',
+                            paddingHorizontal: tokens.spacing.sm,
+                            paddingVertical: tokens.spacing.xs,
+                            borderRadius: tokens.borderRadius.md
+                        }}
+                    >
+                        <Text style={{ fontSize: tokens.typography.xs, color: '#6B7280' }}>
+                            {capability.name}
+                        </Text>
+                    </View>
+                ))}
+            </View>
+        </TouchableOpacity>
+    );
+
+    const renderGridAgentCard = ({ item }: { item: Agent }) => (
+        <TouchableOpacity
+            onPress={() => startChatWithAgent(item)}
+            style={{
+                backgroundColor: 'white',
+                borderRadius: tokens.borderRadius.lg,
+                padding: tokens.spacing.md,
+                marginBottom: tokens.spacing.md,
+                ...tokens.shadows.sm
+            }}
+        >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View
+                    style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: tokens.borderRadius.lg,
+                        backgroundColor: '#FEF3C7',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: tokens.spacing.sm
+                    }}
+                >
+                    <Text style={{ fontSize: 20 }}>{item.avatar}</Text>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                    <Text style={{
+                        fontSize: tokens.typography.base,
+                        fontWeight: 'bold',
+                        color: '#1F2937'
+                    }}>
+                        {item.name}
+                    </Text>
+                    <Text style={{
+                        fontSize: tokens.typography.sm,
+                        color: '#6B7280'
+                    }} numberOfLines={2}>
                         {item.description}
                     </Text>
+                </View>
 
-                    <View className="flex-row items-center justify-between">
-                        <View className="flex-row items-center">
-                            <Ionicons name="star" size={14} color="#F59E0B" />
-                            <Text className="text-yellow-600 font-medium text-sm ml-1">{item.rating}</Text>
-                            <Text className="text-gray-500 text-sm ml-2">• {item.users} users</Text>
-                        </View>
-
-                        <View className="bg-gray-100 px-2 py-1 rounded-full">
-                            <Text className="text-gray-700 text-xs font-medium">{item.category}</Text>
-                        </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{
+                        fontSize: tokens.typography.sm,
+                        fontWeight: 'bold',
+                        color: item.price === 'Free' ? '#10B981' : '#F97316'
+                    }}>
+                        {item.price === 'Free' ? 'Free' : `${item.price} ETH`}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                        <Ionicons name="star" size={12} color="#F59E0B" />
+                        <Text style={{ fontSize: tokens.typography.xs, color: '#6B7280', marginLeft: 2 }}>
+                            {item.rating}
+                        </Text>
                     </View>
-
-                    <Text className="text-gray-500 text-xs mt-2">by {item.creator}</Text>
                 </View>
             </View>
         </TouchableOpacity>
     );
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50">
-            {/* Header */}
-            <View className="bg-white px-6 py-4 border-b border-gray-100">
-                <View className="flex-row items-center mb-4">
-                    <TouchableOpacity onPress={() => router.back()} className="mr-4">
-                        <Ionicons name="arrow-back" size={24} color="#374151" />
-                    </TouchableOpacity>
-                    <Text className="text-xl font-bold text-gray-900 flex-1">AI Agent Marketplace</Text>
-                    <TouchableOpacity onPress={() => router.push('/agent/create')}>
-                        <Ionicons name="add-circle" size={24} color="#F97316" />
-                    </TouchableOpacity>
+        <ScreenWrapper mode="safe" backgroundColor="#F9FAFB">
+            <CustomHeader
+                title="AI Agents"
+                subtitle="Discover powerful AI assistants"
+                showBackButton
+            />
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Search Bar */}
+                <View style={{ padding: tokens.spacing.md }}>
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: 'white',
+                            borderRadius: tokens.borderRadius.full,
+                            paddingHorizontal: tokens.spacing.md,
+                            paddingVertical: tokens.spacing.sm,
+                            ...tokens.shadows.sm
+                        }}
+                    >
+                        <Ionicons name="search" size={20} color="#6B7280" />
+                        <TextInput
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            placeholder="Search agents..."
+                            style={{
+                                flex: 1,
+                                marginLeft: tokens.spacing.sm,
+                                fontSize: tokens.typography.base,
+                                color: '#1F2937'
+                            }}
+                            placeholderTextColor="#9CA3AF"
+                        />
+                    </View>
                 </View>
 
-                {/* Search */}
-                <View className="flex-row items-center bg-gray-100 rounded-full px-4 py-3">
-                    <Ionicons name="search" size={20} color="#6B7280" />
-                    <TextInput
-                        placeholder="Search agents..."
-                        className="flex-1 ml-3 text-gray-900"
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
+                {/* Categories */}
+                <View style={{ paddingHorizontal: tokens.spacing.md, marginBottom: tokens.spacing.lg }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={{ flexDirection: 'row', gap: tokens.spacing.sm }}>
+                            {categories.map((category) => (
+                                <TouchableOpacity
+                                    key={category.id}
+                                    onPress={() => setSelectedCategory(category.id)}
+                                    style={{
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        paddingHorizontal: tokens.spacing.md,
+                                        paddingVertical: tokens.spacing.sm,
+                                        borderRadius: tokens.borderRadius.full,
+                                        backgroundColor: selectedCategory === category.id ? '#1F2937' : 'white',
+                                        ...tokens.shadows.sm
+                                    }}
+                                >
+                                    <Ionicons
+                                        name={category.icon as any}
+                                        size={16}
+                                        color={selectedCategory === category.id ? 'white' : '#6B7280'}
+                                    />
+                                    <Text style={{
+                                        marginLeft: tokens.spacing.xs,
+                                        fontSize: tokens.typography.sm,
+                                        fontWeight: '500',
+                                        color: selectedCategory === category.id ? 'white' : '#6B7280'
+                                    }}>
+                                        {category.name}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </ScrollView>
+                </View>
+
+                {/* Featured Agents */}
+                <View style={{ paddingHorizontal: tokens.spacing.md, marginBottom: tokens.spacing.lg }}>
+                    <Text style={{
+                        fontSize: tokens.typography.xl,
+                        fontWeight: 'bold',
+                        color: '#1F2937',
+                        marginBottom: tokens.spacing.md
+                    }}>
+                        Featured Agents
+                    </Text>
+
+                    <FlatList
+                        data={filteredAgents.slice(0, 3)}
+                        renderItem={renderAgentCard}
+                        keyExtractor={(item) => item.id}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingLeft: tokens.spacing.md }}
                     />
                 </View>
-            </View>
 
-            {/* Categories */}
-            <View className="bg-white px-6 py-4 border-b border-gray-100">
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View className="flex-row space-x-3">
-                        {categories.map((category) => (
-                            <TouchableOpacity
-                                key={category}
-                                onPress={() => setSelectedCategory(category)}
-                                className={`px-4 py-2 rounded-full ${selectedCategory === category ? 'bg-orange-500' : 'bg-gray-100'
-                                    }`}
-                            >
-                                <Text className={`font-medium ${selectedCategory === category ? 'text-white' : 'text-gray-700'
-                                    }`}>
-                                    {category}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </ScrollView>
-            </View>
+                {/* All Agents */}
+                <View style={{ paddingHorizontal: tokens.spacing.md }}>
+                    <Text style={{
+                        fontSize: tokens.typography.xl,
+                        fontWeight: 'bold',
+                        color: '#1F2937',
+                        marginBottom: tokens.spacing.md
+                    }}>
+                        All Agents ({filteredAgents.length})
+                    </Text>
 
-            {/* Agents List */}
-            <FlatList
-                data={agents}
-                renderItem={renderAgentCard}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={{ padding: 24 }}
-                showsVerticalScrollIndicator={false}
-            />
-        </SafeAreaView>
+                    <FlatList
+                        data={filteredAgents}
+                        renderItem={renderGridAgentCard}
+                        keyExtractor={(item) => item.id}
+                        scrollEnabled={false}
+                    />
+                </View>
+
+                <View style={{ height: tokens.spacing.xl }} />
+            </ScrollView>
+        </ScreenWrapper>
     );
 }

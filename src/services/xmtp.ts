@@ -1,423 +1,262 @@
-import { Client, Conversation, DecodedMessage } from '@xmtp/react-native-sdk';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../hooks/useAuth';
 
-export interface XMTPClientConfig {
-  env: 'dev' | 'production' | 'local';
-  appVersion?: string;
-}
-
-export interface EventRoomMetadata {
-  eventId: string;
-  eventTitle: string;
-  eventPhase: 'before' | 'during' | 'after';
-  eventStartTime: Date;
-  eventEndTime: Date;
-  maxParticipants?: number;
-}
-
-export interface AgentMetadata {
-  agentId: string;
-  agentName: string;
-  agentType: 'trading' | 'gaming' | 'utility' | 'social';
-  capabilities: string[];
-}
-
-export interface MiniAppMessage {
-  appId: string;
-  appName: string;
-  action: string;
-  payload: Record<string, any>;
-}
-
-// Mock types to match XMTP SDK structure
-type ConversationTopic = string & { readonly brand: unique symbol };
-type MessageId = string & { readonly brand: unique symbol };
-
-interface MockConversation {
-  topic: ConversationTopic;
-  peerAddress: string;
-  createdAt: Date;
-  messages: (options?: any) => Promise<MockDecodedMessage[]>;
-  send: (content: string) => Promise<MockDecodedMessage>;
-  streamMessages: (callback: (message: MockDecodedMessage) => void) => { cancel: () => void };
-}
-
-interface MockDecodedMessage {
-  id: MessageId;
-  topic: ConversationTopic;
+export interface XMTPMessage {
+  id: string;
   content: string;
   senderAddress: string;
-  sent: Date;
-  contentType: {
-    authorityId: string;
-    typeId: string;
-    versionMajor: number;
-    versionMinor: number;
-  };
+  sentAt: Date;
+  conversationTopic: string;
 }
 
-interface MockClient {
-  address: string;
-  conversations: {
-    list: () => Promise<MockConversation[]>;
-    newConversation: (peerAddress: string) => Promise<MockConversation>;
-    stream: (callback: (conversation: MockConversation) => void) => { cancel: () => void };
-  };
+export interface XMTPConversation {
+  topic: string;
+  peerAddress: string;
+  createdAt: Date;
+  lastMessage?: XMTPMessage;
 }
 
-class XMTPService {
-  private client: MockClient | null = null;
-  private conversations: Map<string, MockConversation> = new Map();
-  private isInitialized = false;
-  private userAddress: string | null = null;
+export class XMTPService {
+  private isDemo = true; // Enable demo mode for buildathon
+  private demoMessages: Map<string, XMTPMessage[]> = new Map();
+  private demoConversations: Map<string, XMTPConversation> = new Map();
 
-  /**
-   * Initialize XMTP client - simplified for buildathon
-   */
-  async initialize(signerAddress: string, config: XMTPClientConfig = { env: 'dev' }): Promise<void> {
-    try {
-      if (this.isInitialized && this.client) {
-        console.log('XMTP client already initialized');
-        return;
-      }
-
-      this.userAddress = signerAddress;
-
-      // For buildathon: Create a mock client
-      this.client = await this.createMockClient(signerAddress, config);
-
-      this.isInitialized = true;
-      console.log('✅ XMTP client initialized successfully');
-
-    } catch (error) {
-      console.error('❌ Failed to initialize XMTP client:', error);
-      throw new Error(`XMTP initialization failed: ${(error as Error).message}`);
-    }
+  constructor() {
+    this.initializeDemoData();
   }
 
-  /**
-   * Create mock client for buildathon demo
-   */
-  private async createMockClient(address: string, config: XMTPClientConfig): Promise<MockClient> {
-    console.log(`Creating XMTP client for ${address} on ${config.env} network`);
-
-    // Simulate client creation delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    return {
-      address,
-      conversations: {
-        list: async () => {
-          return Array.from(this.conversations.values());
-        },
-        newConversation: async (peerAddress: string) => {
-          return this.createMockConversation(peerAddress);
-        },
-        stream: (callback: (conversation: MockConversation) => void) => {
-          console.log('Starting conversation stream...');
-          return { cancel: () => console.log('Stream cancelled') };
+  private initializeDemoData() {
+    // Demo conversations
+    const demoConvs = [
+      {
+        topic: 'defi-trader-agent',
+        peerAddress: '0x1234567890123456789012345678901234567890',
+        createdAt: new Date(),
+        lastMessage: {
+          id: '1',
+          content: '🎯 I can help you with DeFi trading on Base! What would you like to explore?',
+          senderAddress: '0x1234567890123456789012345678901234567890',
+          sentAt: new Date(),
+          conversationTopic: 'defi-trader-agent'
+        }
+      },
+      {
+        topic: 'event-room-1',
+        peerAddress: 'event-system',
+        createdAt: new Date(),
+        lastMessage: {
+          id: '2',
+          content: 'Welcome to The Man Exclusive 2025! 🎉 Connect with other attendees.',
+          senderAddress: 'event-system',
+          sentAt: new Date(),
+          conversationTopic: 'event-room-1'
         }
       }
-    };
+    ];
+
+    demoConvs.forEach(conv => {
+      this.demoConversations.set(conv.topic, conv);
+      if (conv.lastMessage) {
+        this.demoMessages.set(conv.topic, [conv.lastMessage]);
+      }
+    });
   }
 
-  /**
-   * Create mock conversation for demo
-   */
-  private createMockConversation(peerAddress: string): MockConversation {
-    const conversationId = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const topic = conversationId as ConversationTopic; // Type assertion for branded type
+  async initialize(signer: any): Promise<void> {
+    try {
+      console.log('🚀 XMTP Service initialized (Demo Mode)');
 
-    const mockConversation: MockConversation = {
+      // In production, you would:
+      // const { Client } = require('@xmtp/react-native-sdk');
+      // this.client = await Client.create(signer);
+
+      return Promise.resolve();
+    } catch (error) {
+      console.error('XMTP init error:', error);
+      throw error;
+    }
+  }
+
+  async getConversations(): Promise<XMTPConversation[]> {
+    if (this.isDemo) {
+      return Array.from(this.demoConversations.values());
+    }
+
+    // Real XMTP implementation would go here
+    return [];
+  }
+
+  async startConversation(peerAddress: string): Promise<XMTPConversation> {
+    const topic = `conv-${Date.now()}`;
+    const conversation: XMTPConversation = {
       topic,
       peerAddress,
-      createdAt: new Date(),
-      messages: async (options?: any) => {
-        return this.getMockMessages(topic);
-      },
-      send: async (content: string) => {
-        console.log(`Sending message: ${content}`);
-        return this.createMockMessage(topic, content, this.userAddress!);
-      },
-      streamMessages: (callback: (message: MockDecodedMessage) => void) => {
-        console.log('Starting message stream...');
-        return { cancel: () => console.log('Message stream cancelled') };
-      }
+      createdAt: new Date()
     };
 
-    this.conversations.set(conversationId, mockConversation);
-    return mockConversation;
+    if (this.isDemo) {
+      this.demoConversations.set(topic, conversation);
+      this.demoMessages.set(topic, []);
+    }
+
+    return conversation;
   }
 
-  /**
-   * Create mock message
-   */
-  private createMockMessage(topic: ConversationTopic, content: string, senderAddress: string): MockDecodedMessage {
-    const messageId = `msg-${Date.now()}` as MessageId;
-
-    return {
-      id: messageId,
-      topic,
+  async sendMessage(topic: string, content: string, senderAddress: string): Promise<XMTPMessage> {
+    const message: XMTPMessage = {
+      id: `msg-${Date.now()}`,
       content,
       senderAddress,
-      sent: new Date(),
-      contentType: {
-        authorityId: 'xmtp.org',
-        typeId: 'text',
-        versionMajor: 1,
-        versionMinor: 0
+      sentAt: new Date(),
+      conversationTopic: topic
+    };
+
+    if (this.isDemo) {
+      const messages = this.demoMessages.get(topic) || [];
+      messages.push(message);
+      this.demoMessages.set(topic, messages);
+
+      // Update conversation last message
+      const conv = this.demoConversations.get(topic);
+      if (conv) {
+        conv.lastMessage = message;
+        this.demoConversations.set(topic, conv);
+      }
+
+      // Simulate agent responses
+      this.simulateAgentResponse(topic, content, senderAddress);
+    }
+
+    return message;
+  }
+
+  private async simulateAgentResponse(topic: string, userMessage: string, userAddress: string) {
+    // Don't respond to our own messages
+    if (topic.includes('agent') && !userAddress.includes('agent')) {
+      setTimeout(() => {
+        const responses = this.getAgentResponse(topic, userMessage);
+
+        responses.forEach((response, index) => {
+          setTimeout(() => {
+            const agentMessage: XMTPMessage = {
+              id: `agent-${Date.now()}-${index}`,
+              content: response,
+              senderAddress: this.demoConversations.get(topic)?.peerAddress || 'agent',
+              sentAt: new Date(),
+              conversationTopic: topic
+            };
+
+            const messages = this.demoMessages.get(topic) || [];
+            messages.push(agentMessage);
+            this.demoMessages.set(topic, messages);
+
+            // Update conversation
+            const conv = this.demoConversations.get(topic);
+            if (conv) {
+              conv.lastMessage = agentMessage;
+              this.demoConversations.set(topic, conv);
+            }
+          }, index * 1000);
+        });
+      }, 1000);
+    }
+  }
+
+  private getAgentResponse(topic: string, message: string): string[] {
+    const lowerMessage = message.toLowerCase();
+
+    if (topic.includes('defi') || topic.includes('trader')) {
+      if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
+        return [
+          '👋 Hello! I\'m your DeFi trading assistant on Base.',
+          '📊 I can help you with:\n• Real-time trading signals\n• Yield farming opportunities\n• Portfolio analysis\n• Risk management',
+          'What would you like to explore first?'
+        ];
+      }
+
+      if (lowerMessage.includes('trade') || lowerMessage.includes('buy')) {
+        return [
+          '🎯 Current market analysis for Base:',
+          '• ETH/USDC: Bullish momentum, RSI at 65\n• UNI/ETH: Consolidating, good entry point\n• USDC lending on Aave: 3.2% APY',
+          'Which asset interests you most?'
+        ];
+      }
+
+      if (lowerMessage.includes('yield') || lowerMessage.includes('farm')) {
+        return [
+          '🌱 Top yield opportunities on Base:',
+          '1. Uniswap V3 ETH/USDC LP: ~8.5% APY\n2. Aave USDC lending: ~3.2% APY\n3. Compound ETH: ~2.8% APY',
+          'Want me to calculate optimal position sizes?'
+        ];
+      }
+
+      return ['📈 I can help with trading, yield farming, or portfolio analysis. What interests you?'];
+    }
+
+    if (topic.includes('event')) {
+      return [
+        '🎉 Welcome to the event chat!',
+        'I can help you:\n• Connect with other attendees\n• Split event costs\n• Plan meetups\n• Share contact info',
+        'What would you like to do?'
+      ];
+    }
+
+    return ['👋 Hello! How can I help you today?'];
+  }
+
+  async getMessages(topic: string): Promise<XMTPMessage[]> {
+    if (this.isDemo) {
+      return this.demoMessages.get(topic) || [];
+    }
+
+    return [];
+  }
+
+  async streamMessages(topic: string, onMessage: (message: XMTPMessage) => void): Promise<() => void> {
+    if (this.isDemo) {
+      // Simulate real-time updates by polling
+      const interval = setInterval(() => {
+        const messages = this.demoMessages.get(topic) || [];
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          onMessage(lastMessage);
+        }
+      }, 2000);
+
+      return () => clearInterval(interval);
+    }
+
+    return () => { };
+  }
+
+  async createEventRoom(eventId: string, eventTitle: string): Promise<string> {
+    const roomTopic = `event-room-${eventId}`;
+
+    const eventRoom: XMTPConversation = {
+      topic: roomTopic,
+      peerAddress: 'event-system',
+      createdAt: new Date(),
+      lastMessage: {
+        id: `welcome-${eventId}`,
+        content: `🎉 Welcome to ${eventTitle}! Connect with other attendees here.`,
+        senderAddress: 'event-system',
+        sentAt: new Date(),
+        conversationTopic: roomTopic
       }
     };
-  }
 
-  /**
-   * Get mock messages for demo
-   */
-  private getMockMessages(topic: ConversationTopic): MockDecodedMessage[] {
-    return [
-      this.createMockMessage(topic, 'Welcome to XMTP!', 'system'),
-      this.createMockMessage(topic, 'This is a demo conversation', this.userAddress!)
-    ];
-  }
-
-  /**
-   * Create or get event-based conversation room
-   */
-  async getOrCreateEventRoom(
-    eventMetadata: EventRoomMetadata,
-    participantAddresses: string[]
-  ): Promise<Conversation> {
-    if (!this.client) {
-      throw new Error('XMTP client not initialized');
+    if (this.isDemo) {
+      this.demoConversations.set(roomTopic, eventRoom);
+      this.demoMessages.set(roomTopic, [eventRoom.lastMessage!]);
     }
 
-    const roomTopic = `event-${eventMetadata.eventId}`;
-
-    let conversation = this.conversations.get(roomTopic);
-
-    if (!conversation) {
-      try {
-        // For buildathon: create mock event room
-        conversation = this.createMockConversation('event-room');
-        // Override the topic with our event room topic
-        (conversation as any).topic = roomTopic as ConversationTopic;
-
-        // Store event metadata
-        await AsyncStorage.setItem(
-          `event-metadata-${roomTopic}`,
-          JSON.stringify(eventMetadata)
-        );
-
-        this.conversations.set(roomTopic, conversation);
-
-        console.log(`✅ Created event room: ${eventMetadata.eventTitle}`);
-
-      } catch (error) {
-        console.error(`Failed to create event room ${roomTopic}:`, error);
-        throw error;
-      }
-    }
-
-    return conversation as any; // Type assertion for compatibility
+    return roomTopic;
   }
 
-  /**
-   * Create agent conversation
-   */
-  async createAgentConversation(
-    agentAddress: string,
-    agentMetadata: AgentMetadata
-  ): Promise<Conversation> {
-    if (!this.client) {
-      throw new Error('XMTP client not initialized');
-    }
-
-    try {
-      const conversation = this.createMockConversation(agentAddress);
-
-      // Send initial agent introduction
-      const introMessage = {
-        type: 'agent-intro',
-        agentId: agentMetadata.agentId,
-        agentName: agentMetadata.agentName,
-        agentType: agentMetadata.agentType,
-        capabilities: agentMetadata.capabilities,
-        timestamp: new Date().toISOString()
-      };
-
-      await conversation.send(JSON.stringify(introMessage));
-
-      console.log(`✅ Created agent conversation with ${agentMetadata.agentName}`);
-
-      return conversation as any; // Type assertion for compatibility
-
-    } catch (error) {
-      console.error('Failed to create agent conversation:', error);
-      throw error;
-    }
+  get isClientReady(): boolean {
+    return true; // Always ready in demo mode
   }
 
-  /**
-   * Send message to conversation
-   */
-  async sendMessage(
-    conversationId: string,
-    content: string,
-    messageType: 'text' | 'mini-app' | 'agent-command' = 'text',
-    metadata?: Record<string, any>
-  ): Promise<void> {
-    const conversation = this.conversations.get(conversationId);
-
-    if (!conversation) {
-      throw new Error(`Conversation ${conversationId} not found`);
-    }
-
-    try {
-      const messagePayload = {
-        type: messageType,
-        content,
-        metadata,
-        timestamp: new Date().toISOString(),
-        sender: this.userAddress
-      };
-
-      if (messageType === 'mini-app' && metadata) {
-        (messagePayload as any).miniApp = metadata as MiniAppMessage;
-      }
-
-      await conversation.send(JSON.stringify(messagePayload));
-
-      console.log(`✅ Message sent to ${conversationId}`);
-
-    } catch (error) {
-      console.error(`Failed to send message to ${conversationId}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Send mini-app message with interactive payload
-   */
-  async sendMiniAppMessage(
-    conversationId: string,
-    miniAppData: MiniAppMessage
-  ): Promise<void> {
-    await this.sendMessage(
-      conversationId,
-      `Mini-app action: ${miniAppData.action}`,
-      'mini-app',
-      miniAppData
-    );
-  }
-
-  /**
-   * Get conversation messages
-   */
-  async getMessages(
-    conversationId: string,
-    limit: number = 50,
-    beforeNs?: Date
-  ): Promise<DecodedMessage[]> {
-    const conversation = this.conversations.get(conversationId);
-
-    if (!conversation) {
-      throw new Error(`Conversation ${conversationId} not found`);
-    }
-
-    try {
-      const options: any = { limit };
-      if (beforeNs) {
-        options.beforeNs = beforeNs.getTime() * 1000000; // Convert to nanoseconds
-      }
-
-      const messages = await conversation.messages(options);
-      return messages as any; // Type assertion for compatibility
-
-    } catch (error) {
-      console.error(`Failed to get messages for ${conversationId}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * List all conversations with metadata
-   */
-  async listConversations(): Promise<Array<{
-    id: string;
-    conversation: Conversation;
-    lastMessage?: DecodedMessage;
-    unreadCount: number;
-    metadata?: any;
-  }>> {
-    if (!this.client) {
-      throw new Error('XMTP client not initialized');
-    }
-
-    try {
-      const conversations = await this.client.conversations.list();
-
-      const conversationList = await Promise.all(
-        conversations.map(async (conv) => {
-          const messages = await conv.messages({ limit: 1 });
-          const lastMessage = messages[0];
-
-          return {
-            id: conv.topic as string, // Convert branded type to string
-            conversation: conv as any, // Type assertion for compatibility
-            lastMessage: lastMessage as any,
-            unreadCount: 0, // Simplified for buildathon
-            metadata: await this.getConversationMetadata(conv.topic as string)
-          };
-        })
-      );
-
-      return conversationList;
-
-    } catch (error) {
-      console.error('Failed to list conversations:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get conversation metadata
-   */
-  private async getConversationMetadata(topic: string): Promise<any> {
-    try {
-      const stored = await AsyncStorage.getItem(`conversation-metadata-${topic}`);
-      return stored ? JSON.parse(stored) : null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  /**
-   * Get client address
-   */
-  getAddress(): string | null {
-    return this.userAddress;
-  }
-
-  /**
-   * Check if client is initialized
-   */
-  isClientInitialized(): boolean {
-    return this.isInitialized && this.client !== null;
-  }
-
-  /**
-   * Cleanup and disconnect
-   */
-  async disconnect(): Promise<void> {
-    this.conversations.clear();
-    this.client = null;
-    this.isInitialized = false;
-    this.userAddress = null;
-
-    console.log('🔌 XMTP client disconnected');
+  get clientAddress(): string | null {
+    return 'demo-address';
   }
 }
-
-// Export singleton instance
-export const xmtpService = new XMTPService();
-export default xmtpService;

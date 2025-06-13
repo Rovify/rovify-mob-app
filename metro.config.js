@@ -3,10 +3,6 @@ const { getDefaultConfig } = require('expo/metro-config');
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
-// Enable support for font files
-config.resolver.assetExts.push('otf', 'ttf', 'woff', 'woff2');
-
-// Add support for TypeScript paths
 config.resolver.alias = {
   '@': './src',
   '@components': './src/components',
@@ -15,6 +11,13 @@ config.resolver.alias = {
   '@services': './src/services',
   '@utils': './src/utils',
   '@types': './src/types',
+  crypto: 'expo-crypto',
+  stream: 'readable-stream',
+  buffer: '@craftzdog/react-native-buffer',
 };
+
+config.resolver.assetExts.push('otf', 'ttf', 'woff', 'woff2');
+
+config.resolver.sourceExts = [...config.resolver.sourceExts, 'cjs'];
 
 module.exports = config;

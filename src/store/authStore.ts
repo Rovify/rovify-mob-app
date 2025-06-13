@@ -1,101 +1,57 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AuthState, User } from '../types/auth';
+import { persist } from 'zustand/middleware';
+import { ethers } from 'ethers';
 
-interface AuthActions {
-  // State setters
-  setConnecting: (connecting: boolean) => void;
-  setError: (error: string | null) => void;
-  setUser: (user: User | null) => void;
-
-  // Wallet actions
-  connectWallet: () => Promise<void>;
-  disconnect: () => void;
-
-  // Getters
-  getAddress: () => string | null;
-
+interface AuthState {
+  isAuthenticated: boolean;
   address: string | null;
-  signer: any | null;
+  signer: ethers.Signer | null;
+  provider: ethers.BrowserProvider | null;
+  balance: string | null;
+  setAuthenticated: (authenticated: boolean) => void;
+  setAddress: (address: string) => void;
+  setSigner: (signer: ethers.Signer) => void;
+  setProvider: (provider: ethers.BrowserProvider) => void;
+  setBalance: (balance: string) => void;
+  clearAuth: () => void;
 }
 
-type AuthStore = AuthState & AuthActions;
-
-export const useAuthStore = create<AuthStore>()(
+export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
-      // Initial state
-      user: null,
-      isConnecting: false,
+    (set) => ({
       isAuthenticated: false,
-      error: null,
-      connection: null,
-
-      // Computed properties (getter-like)
-      get address() {
-        return get().user?.address || null;
-      },
-
-      get signer() {
-        const user = get().user;
-        if (!user) return null;
-
-        // Return mock signer for buildathon
-        return {
-          address: user.address,
-          getAddress: async () => user.address,
-          signMessage: async (message: string) => {
-            console.log('Mock signing message:', message);
-            return '0x' + Math.random().toString(16).substr(2);
-          },
-          getChainId: async () => user.chainId,
-        };
-      },
-
-      // Actions
-      setConnecting: (connecting: boolean) =>
-        set({ isConnecting: connecting }),
-
-      setError: (error: string | null) =>
-        set({ error }),
-
-      setUser: (user: User | null) =>
-        set({
-          user,
-          isAuthenticated: !!user,
-          connection: user ? {
-            address: user.address,
-            chainId: user.chainId,
-            provider: null, // Mock for buildathon
-            signer: null,   // Mock for buildathon
-          } : null
-        }),
-
-      connectWallet: async () => {
-        // This will be called by the useAuth hook
-        console.log('Connect wallet called from store');
-      },
-
-      disconnect: () => {
-        set({
-          user: null,
-          connection: null,
-          isAuthenticated: false,
-          error: null,
-        });
-      },
-
-      // Getters
-      getAddress: () => get().user?.address || null,
+      address: null,
+      signer: null,
+      provider: null,
+      balance: null,
+      setAuthenticated: (authenticated) => set({ isAuthenticated: authenticated }),
+      setAddress: (address) => set({ address }),
+      setSigner: (signer) => set({ signer }),
+      setProvider: (provider) => set({ provider }),
+      setBalance: (balance) => set({ balance }),
+      clearAuth: () => set({
+        isAuthenticated: false,
+        address: null,
+        signer: null,
+        provider: null,
+        balance: null
+      })
     }),
     {
       name: 'auth-store',
-      storage: createJSONStorage(() => AsyncStorage),
+      // Don't persist signer/provider as they contain functions
       partialize: (state) => ({
-        user: state.user,
         isAuthenticated: state.isAuthenticated,
-      }),
+        address: state.address,
+        balance: state.balance
+      })
     }
   )
 );
+
+// Global type
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}

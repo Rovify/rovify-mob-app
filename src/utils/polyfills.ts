@@ -1,8 +1,14 @@
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
+import { Buffer } from '@craftzdog/react-native-buffer';
+import 'text-encoding';
 
-// Text encoding polyfills
-import 'fast-text-encoding';
+// @ts-ignore
+global.Buffer = Buffer;
+
+if (typeof global.process === 'undefined') {
+  global.process = require('process');
+}
 
 // Additional crypto polyfills if needed
 if (typeof global.crypto === 'undefined') {
@@ -16,7 +22,11 @@ if (typeof global.BigInt === 'undefined') {
 
 // TextEncoder/TextDecoder polyfill check
 if (typeof global.TextEncoder === 'undefined') {
-  console.warn('TextEncoder not available after polyfills');
+  global.TextEncoder = require('text-encoding').TextEncoder;
+}
+
+if (typeof global.TextDecoder === 'undefined') {
+  global.TextDecoder = require('text-encoding').TextDecoder;
 }
 
 console.log('✅ Polyfills loaded for XMTP compatibility');

@@ -1,26 +1,11 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { CreateBottomSheet } from '../../src/components/features/create/CreateBottomSheet';
-import { useAppInitialization } from '../../src/services';
-import { LoadingScreen } from '../../src/components/layout/LoadingScreen';
 import { View } from 'react-native';
 
 export default function TabLayout() {
     const [showCreateSheet, setShowCreateSheet] = useState(false);
-    const { isReady, error, isInitializing, initialize } = useAppInitialization();
-
-    // Initialize services when tabs load
-    useEffect(() => {
-        if (!isReady && !isInitializing && !error) {
-            initialize();
-        }
-    }, [isReady, isInitializing, error, initialize]);
-
-    // Show loading overlay while initializing services
-    if (!isReady) {
-        return <LoadingScreen error={error} isInitializing={isInitializing} />;
-    }
 
     return (
         <>

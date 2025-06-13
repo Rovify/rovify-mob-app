@@ -5,14 +5,15 @@ import {
     TouchableOpacity,
     FlatList,
     Dimensions,
-    Image,
     StatusBar,
-    Animated
+    Animated,
+    Platform
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getDeviceInfo, getDesignTokens } from '../src/utils/responsive';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -27,8 +28,8 @@ interface OnboardingSlide {
 const onboardingData: OnboardingSlide[] = [
     {
         id: '1',
-        title: 'WELCOME\nTO YOUR\nEVENT\nUNIVERSE',
-        subtitle: 'Discover, attend, and own your\nfavorite events with friend-approved\nexperiences',
+        title: 'WELCOME TO YOUR\nEVENT UNIVERSE',
+        subtitle: 'Discover, attend, and own your favorite events\nwith friend-approved experiences',
         image: '🎉',
         gradient: ['#F97316', '#EA580C']
     },
@@ -48,8 +49,8 @@ const onboardingData: OnboardingSlide[] = [
     },
     {
         id: '4',
-        title: 'OWN\nYOUR\nMEMORIES',
-        subtitle: 'Collect moments, experiences,\nand memory-filled adventures\nwith every swipe, tap, and\nmemory made real',
+        title: 'OWN YOUR\nMEMORIES',
+        subtitle: 'Collect moments, experiences, and\nmemory-filled adventures with every\nswipe, tap, and memory made real',
         image: '📸',
         gradient: ['#10B981', '#059669']
     }
@@ -60,13 +61,37 @@ export default function OnboardingScreen() {
     const flatListRef = useRef<FlatList>(null);
     const scrollX = useRef(new Animated.Value(0)).current;
 
+    const insets = useSafeAreaInsets();
+    const device = getDeviceInfo();
+    const tokens = getDesignTokens();
+
+    // Get screen dimensions including system UI
+    const screenData = Dimensions.get('screen');
+    const windowData = Dimensions.get('window');
+
+    // Calculate the actual full height (important for Android)
+    const fullHeight = Platform.OS === 'android' ? screenData.height : SCREEN_HEIGHT;
+
+    const getResponsiveLayout = () => {
+        return {
+            topPadding: insets.top + tokens.spacing.md,
+            iconSize: device.isSmallDevice ? 140 : 160,
+            titleFontSize: device.isSmallDevice ? tokens.typography['2xl'] : tokens.typography['3xl'],
+            subtitleFontSize: device.isSmallDevice ? tokens.typography.sm : tokens.typography.base,
+            contentPaddingHorizontal: device.isSmallDevice ? tokens.spacing.lg : tokens.spacing.xl,
+            bottomSpacing: device.isSmallDevice ? tokens.spacing.lg : tokens.spacing.xl,
+            buttonHeight: device.isSmallDevice ? 48 : 56,
+        };
+    };
+
+    const layout = getResponsiveLayout();
+
     const handleNext = () => {
         if (currentIndex < onboardingData.length - 1) {
             const nextIndex = currentIndex + 1;
             flatListRef.current?.scrollToIndex({ index: nextIndex });
             setCurrentIndex(nextIndex);
         } else {
-            // Navigate to auth/connect
             router.replace('/auth/connect');
         }
     };
@@ -95,164 +120,264 @@ export default function OnboardingScreen() {
 
         const scale = scrollX.interpolate({
             inputRange,
-            outputRange: [0.8, 1, 0.8],
+            outputRange: [0.9, 1, 0.9],
+            extrapolate: 'clamp',
+        });
+
+        const translateY = scrollX.interpolate({
+            inputRange,
+            outputRange: [20, 0, 20],
             extrapolate: 'clamp',
         });
 
         return (
-            <LinearGradient
-                colors={item.gradient}
-                style={{
-                    width: SCREEN_WIDTH,
-                    height: SCREEN_HEIGHT,
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingTop: 80,
-                    paddingBottom: 120
-                }}
-            >
-                {/* Skip Button */}
-                <View style={{ width: '100%', alignItems: 'flex-end', paddingHorizontal: 20 }}>
-                    <TouchableOpacity
-                        onPress={handleSkip}
-                        style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                            paddingHorizontal: 16,
-                            paddingVertical: 8,
-                            borderRadius: 20
-                        }}
-                    >
-                        <Text style={{ color: 'white', fontSize: 14, fontWeight: '600' }}>
-                            Skip
-                        </Text>
-                    </TouchableOpacity>
-                </View>
+            <View style={{
+                width: SCREEN_WIDTH,
+                height: fullHeight, // FIXED: Use full height including system areas
+                position: 'relative'
+            }}>
+                {/* FIXED: LinearGradient covers ENTIRE screen */}
+                <LinearGradient
+                    colors={item.gradient}
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        width: SCREEN_WIDTH,
+                        height: fullHeight, // CRITICAL: Full height coverage
+                    }}
+                />
 
-                {/* Image/Icon */}
-                <Animated.View style={{ opacity, transform: [{ scale }] }}>
+                {/* Content Container */}
+                <View style={{
+                    flex: 1,
+                    justifyContent: 'space-between',
+                    paddingTop: layout.topPadding,
+                    paddingBottom: Math.max(insets.bottom, tokens.spacing.md)
+                }}>
+                    {/* Header Section - FIXED Skip Button */}
                     <View style={{
-                        width: 200,
-                        height: 200,
-                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                        borderRadius: 100,
+                        width: '100%',
+                        alignItems: 'flex-end',
+                        paddingHorizontal: tokens.spacing.lg,
+                        marginBottom: tokens.spacing.lg
+                    }}>
+                        <TouchableOpacity
+                            onPress={handleSkip}
+                            style={{
+                                // FIXED: Better contrast for Android
+                                backgroundColor: Platform.OS === 'android'
+                                    ? 'rgba(0, 0, 0, 0.3)' // Darker background on Android
+                                    : 'rgba(255, 255, 255, 0.2)',
+                                paddingHorizontal: tokens.spacing.md,
+                                paddingVertical: tokens.spacing.xs,
+                                borderRadius: tokens.borderRadius.full,
+                                borderWidth: Platform.OS === 'android' ? 1 : 0,
+                                borderColor: 'rgba(255, 255, 255, 0.3)'
+                            }}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={{
+                                color: 'white',
+                                fontSize: tokens.typography.sm,
+                                fontWeight: '600',
+                                // FIXED: Ensure text is always visible
+                                textShadowColor: 'rgba(0, 0, 0, 0.3)',
+                                textShadowOffset: { width: 0, height: 1 },
+                                textShadowRadius: 2
+                            }}>
+                                Skip
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Icon Section */}
+                    <View style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                    }}>
+                        <Animated.View style={{
+                            opacity,
+                            transform: [{ scale }, { translateY }]
+                        }}>
+                            <View style={{
+                                width: layout.iconSize,
+                                height: layout.iconSize,
+                                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                                borderRadius: layout.iconSize / 2,
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                borderWidth: 2,
+                                borderColor: 'rgba(255, 255, 255, 0.3)'
+                            }}>
+                                <Text style={{
+                                    fontSize: device.isSmallDevice ? 50 : 60
+                                }}>
+                                    {item.image}
+                                </Text>
+                            </View>
+                        </Animated.View>
+                    </View>
+
+                    {/* Content Section */}
+                    <View style={{
+                        flex: 1,
                         justifyContent: 'center',
                         alignItems: 'center',
-                        marginVertical: 40
+                        paddingHorizontal: layout.contentPaddingHorizontal
                     }}>
-                        <Text style={{ fontSize: 80 }}>{item.image}</Text>
-                    </View>
-                </Animated.View>
+                        <Animated.Text
+                            style={{
+                                fontSize: layout.titleFontSize,
+                                fontWeight: '800',
+                                color: 'white',
+                                textAlign: 'center',
+                                lineHeight: layout.titleFontSize * 1.2,
+                                marginBottom: tokens.spacing.md,
+                                opacity,
+                                transform: [{ translateY }],
+                                letterSpacing: -0.5,
+                                // FIXED: Text shadow for better readability
+                                textShadowColor: 'rgba(0, 0, 0, 0.3)',
+                                textShadowOffset: { width: 0, height: 2 },
+                                textShadowRadius: 4
+                            }}
+                        >
+                            {item.title}
+                        </Animated.Text>
 
-                {/* Content */}
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}>
-                    <Animated.Text
-                        style={{
-                            fontSize: 32,
-                            fontWeight: 'bold',
-                            color: 'white',
-                            textAlign: 'center',
-                            lineHeight: 38,
-                            marginBottom: 24,
-                            opacity,
-                            transform: [{ scale }]
-                        }}
-                    >
-                        {item.title}
-                    </Animated.Text>
-
-                    <Animated.Text
-                        style={{
-                            fontSize: 16,
-                            color: 'rgba(255, 255, 255, 0.9)',
-                            textAlign: 'center',
-                            lineHeight: 22,
-                            opacity,
-                            transform: [{ scale }]
-                        }}
-                    >
-                        {item.subtitle}
-                    </Animated.Text>
-                </View>
-
-                {/* Bottom Section */}
-                <View style={{ alignItems: 'center', width: '100%', paddingHorizontal: 40 }}>
-                    {/* Dots Indicator */}
-                    <View style={{ flexDirection: 'row', marginBottom: 40 }}>
-                        {onboardingData.map((_, dotIndex) => {
-                            const inputRange = [
-                                (dotIndex - 1) * SCREEN_WIDTH,
-                                dotIndex * SCREEN_WIDTH,
-                                (dotIndex + 1) * SCREEN_WIDTH,
-                            ];
-
-                            const dotWidth = scrollX.interpolate({
-                                inputRange,
-                                outputRange: [8, 24, 8],
-                                extrapolate: 'clamp',
-                            });
-
-                            const opacity = scrollX.interpolate({
-                                inputRange,
-                                outputRange: [0.3, 1, 0.3],
-                                extrapolate: 'clamp',
-                            });
-
-                            return (
-                                <Animated.View
-                                    key={dotIndex}
-                                    style={{
-                                        width: dotWidth,
-                                        height: 8,
-                                        borderRadius: 4,
-                                        backgroundColor: 'white',
-                                        marginHorizontal: 4,
-                                        opacity
-                                    }}
-                                />
-                            );
-                        })}
+                        <Animated.Text
+                            style={{
+                                fontSize: layout.subtitleFontSize,
+                                color: 'rgba(255, 255, 255, 0.95)',
+                                textAlign: 'center',
+                                lineHeight: layout.subtitleFontSize * 1.4,
+                                opacity,
+                                transform: [{ translateY }],
+                                fontWeight: '400',
+                                // FIXED: Subtle text shadow
+                                textShadowColor: 'rgba(0, 0, 0, 0.2)',
+                                textShadowOffset: { width: 0, height: 1 },
+                                textShadowRadius: 2
+                            }}
+                        >
+                            {item.subtitle}
+                        </Animated.Text>
                     </View>
 
-                    {/* Get Started Button */}
-                    <TouchableOpacity
-                        onPress={handleNext}
-                        style={{
-                            backgroundColor: 'white',
-                            paddingVertical: 16,
-                            paddingHorizontal: 40,
-                            borderRadius: 25,
+                    {/* Bottom Section - FIXED spacing */}
+                    <View style={{
+                        alignItems: 'center',
+                        paddingHorizontal: layout.contentPaddingHorizontal,
+                        paddingBottom: tokens.spacing.md
+                    }}>
+                        {/* Dots Indicator - FIXED positioning */}
+                        <View style={{
                             flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '100%',
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 8,
-                            elevation: 8
-                        }}
-                    >
-                        <Text style={{
-                            color: item.gradient[0],
-                            fontSize: 18,
-                            fontWeight: 'bold',
-                            marginRight: 8
+                            marginBottom: layout.bottomSpacing,
+                            alignItems: 'center'
                         }}>
-                            {currentIndex === onboardingData.length - 1 ? 'Get Started' : 'Next'}
-                        </Text>
-                        <Ionicons
-                            name={currentIndex === onboardingData.length - 1 ? 'rocket' : 'arrow-forward'}
-                            size={20}
-                            color={item.gradient[0]}
-                        />
-                    </TouchableOpacity>
+                            {onboardingData.map((_, dotIndex) => {
+                                const inputRange = [
+                                    (dotIndex - 1) * SCREEN_WIDTH,
+                                    dotIndex * SCREEN_WIDTH,
+                                    (dotIndex + 1) * SCREEN_WIDTH,
+                                ];
+
+                                const dotWidth = scrollX.interpolate({
+                                    inputRange,
+                                    outputRange: [6, 20, 6],
+                                    extrapolate: 'clamp',
+                                });
+
+                                const opacity = scrollX.interpolate({
+                                    inputRange,
+                                    outputRange: [0.4, 1, 0.4],
+                                    extrapolate: 'clamp',
+                                });
+
+                                return (
+                                    <Animated.View
+                                        key={dotIndex}
+                                        style={{
+                                            width: dotWidth,
+                                            height: 6,
+                                            borderRadius: 3,
+                                            backgroundColor: 'white',
+                                            marginHorizontal: 3,
+                                            opacity,
+                                            // FIXED: Shadow for better visibility
+                                            shadowColor: '#000',
+                                            shadowOffset: { width: 0, height: 1 },
+                                            shadowOpacity: 0.3,
+                                            shadowRadius: 2,
+                                            elevation: 2
+                                        }}
+                                    />
+                                );
+                            })}
+                        </View>
+
+                        {/* Action Button - FIXED styling */}
+                        <TouchableOpacity
+                            onPress={handleNext}
+                            style={{
+                                backgroundColor: 'white',
+                                height: layout.buttonHeight,
+                                borderRadius: layout.buttonHeight / 2,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '100%',
+                                paddingHorizontal: tokens.spacing.lg,
+                                // FIXED: Better shadow for Android
+                                ...Platform.select({
+                                    ios: {
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 8,
+                                    },
+                                    android: {
+                                        elevation: 8,
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 8,
+                                    }
+                                })
+                            }}
+                            activeOpacity={0.9}
+                        >
+                            <Text style={{
+                                color: item.gradient[0],
+                                fontSize: tokens.typography.lg,
+                                fontWeight: '700',
+                                marginRight: tokens.spacing.xs
+                            }}>
+                                {currentIndex === onboardingData.length - 1 ? 'Get Started' : 'Continue'}
+                            </Text>
+                            <Ionicons
+                                name={currentIndex === onboardingData.length - 1 ? 'rocket' : 'arrow-forward'}
+                                size={20}
+                                color={item.gradient[0]}
+                            />
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </LinearGradient>
+            </View>
         );
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#F97316' }}>
+        <View style={{
+            flex: 1,
+            backgroundColor: '#000', // FIXED: Black background prevents bleed through
+            height: fullHeight
+        }}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
             <FlatList
@@ -269,6 +394,16 @@ export default function OnboardingScreen() {
                 )}
                 scrollEventThrottle={16}
                 keyExtractor={(item) => item.id}
+                // FIXED: Better performance on Android
+                removeClippedSubviews={false}
+                initialNumToRender={1}
+                maxToRenderPerBatch={1}
+                windowSize={3}
+                getItemLayout={(data, index) => ({
+                    length: SCREEN_WIDTH,
+                    offset: SCREEN_WIDTH * index,
+                    index,
+                })}
             />
         </View>
     );

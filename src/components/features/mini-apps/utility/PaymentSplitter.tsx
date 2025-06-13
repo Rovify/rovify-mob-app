@@ -4,219 +4,214 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    FlatList,
+    Modal,
+    ScrollView,
     Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { getDesignTokens } from '@/utils/responsive';
 
-interface PaymentSplitterProps {
-    sessionData: any;
-    onAction: (action: string, params: any) => void;
-    isLoading: boolean;
+interface PaymentSplitModalProps {
+    visible: boolean;
+    onClose: () => void;
+    onSplit: (amount: number, description: string, participants: string[]) => void;
 }
 
-export const PaymentSplitterComponent: React.FC<PaymentSplitterProps> = ({
-    sessionData,
-    onAction,
-    isLoading
+export const PaymentSplitModal: React.FC<PaymentSplitModalProps> = ({
+    visible,
+    onClose,
+    onSplit
 }) => {
+    const tokens = getDesignTokens();
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
-    const [currency, setCurrency] = useState('USDC');
-    const [participants, setParticipants] = useState<string[]>(['']);
+    const [participants, setParticipants] = useState<string[]>([]);
+    const [newParticipant, setNewParticipant] = useState('');
 
     const addParticipant = () => {
-        setParticipants([...participants, '']);
-    };
-
-    const updateParticipant = (index: number, address: string) => {
-        const updated = [...participants];
-        updated[index] = address;
-        setParticipants(updated);
-    };
-
-    const removeParticipant = (index: number) => {
-        if (participants.length > 1) {
-            setParticipants(participants.filter((_, i) => i !== index));
+        if (newParticipant.trim() && !participants.includes(newParticipant)) {
+            setParticipants([...participants, newParticipant.trim()]);
+            setNewParticipant('');
         }
     };
 
-    const createSplit = () => {
-        const validParticipants = participants.filter(p => p.trim().length > 0);
+    const removeParticipant = (address: string) => {
+        setParticipants(participants.filter(p => p !== address));
+    };
 
-        if (!amount || !description || validParticipants.length === 0) {
-            Alert.alert('Error', 'Please fill in all fields and add at least one participant');
+    const handleSplit = () => {
+        const amountNum = parseFloat(amount);
+        if (!amountNum || amountNum <= 0) {
+            Alert.alert('Error', 'Please enter a valid amount');
             return;
         }
 
-        onAction('create-split', {
-            amount: parseFloat(amount),
-            currency,
-            description,
-            participants: validParticipants
-        });
-    };
+        if (!description.trim()) {
+            Alert.alert('Error', 'Please enter a description');
+            return;
+        }
 
-    const payAmount = (splitId: string, amountToPay: number) => {
-        onAction('pay-split', {
-            splitId,
-            amount: amountToPay
-        });
-    };
+        if (participants.length === 0) {
+            Alert.alert('Error', 'Please add at least one participant');
+            return;
+        }
 
-    // Render existing splits
-    const renderExistingSplits = () => {
-        if (!sessionData?.splits) return null;
+        onSplit(amountNum, description.trim(), participants);
 
-        return (
-            <View className="mb-6">
-                <Text className="text-lg font-bold text-gray-900 mb-4">Active Splits</Text>
-                {Object.values(sessionData.splits).map((split: any) => (
-                    <View key={split.id} className="bg-gray-50 rounded-lg p-4 mb-3">
-                        <View className="flex-row items-center justify-between mb-2">
-                            <Text className="font-semibold text-gray-900">{split.description}</Text>
-                            <Text className="text-orange-600 font-bold">
-                                {split.currency} {split.amount}
-                            </Text>
-                        </View>
-
-                        <Text className="text-sm text-gray-600 mb-3">
-                            {split.currency} {split.amountPerPerson.toFixed(2)} per person
-                        </Text>
-
-                        <View className="space-y-2">
-                            {split.participants.map((participant: string, index: number) => {
-                                const payment = split.payments[participant];
-                                const isPaid = !!payment;
-
-                                return (
-                                    <View key={index} className="flex-row items-center justify-between">
-                                        <Text className="text-gray-700 flex-1" numberOfLines={1}>
-                                            {participant.slice(0, 6)}...{participant.slice(-4)}
-                                        </Text>
-                                        {isPaid ? (
-                                            <View className="flex-row items-center">
-                                                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                                <Text className="text-green-600 ml-1 font-medium">Paid</Text>
-                                            </View>
-                                        ) : (
-                                            <TouchableOpacity
-                                                onPress={() => payAmount(split.id, split.amountPerPerson)}
-                                                className="bg-orange-500 px-3 py-1 rounded-md"
-                                                disabled={isLoading}
-                                            >
-                                                <Text className="text-white text-sm font-medium">Pay</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                );
-                            })}
-                        </View>
-
-                        <View className="mt-3 pt-3 border-t border-gray-200">
-                            <Text className="text-sm text-gray-600">
-                                {Object.keys(split.payments).length} of {split.participants.length} paid
-                            </Text>
-                        </View>
-                    </View>
-                ))}
-            </View>
-        );
+        // Reset form
+        setAmount('');
+        setDescription('');
+        setParticipants([]);
     };
 
     return (
-        <View className="space-y-6">
-            {renderExistingSplits()}
+        <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+            <View style={{ flex: 1, backgroundColor: 'white' }}>
+                {/* Header */}
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: tokens.spacing.md,
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#E5E7EB'
+                }}>
+                    <Text style={{ fontSize: tokens.typography.xl, fontWeight: 'bold' }}>
+                        Split Payment
+                    </Text>
+                    <TouchableOpacity onPress={onClose}>
+                        <Ionicons name="close" size={24} color="#6B7280" />
+                    </TouchableOpacity>
+                </View>
 
-            {/* Create New Split */}
-            <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <Text className="text-lg font-bold text-gray-900 mb-4">Create New Split</Text>
+                <ScrollView style={{ flex: 1, padding: tokens.spacing.md }}>
+                    {/* Amount Input */}
+                    <View style={{ marginBottom: tokens.spacing.lg }}>
+                        <Text style={{ fontSize: tokens.typography.base, fontWeight: '600', marginBottom: tokens.spacing.sm }}>
+                            Total Amount ($)
+                        </Text>
+                        <TextInput
+                            value={amount}
+                            onChangeText={setAmount}
+                            placeholder="0.00"
+                            keyboardType="numeric"
+                            style={{
+                                borderWidth: 1,
+                                borderColor: '#D1D5DB',
+                                borderRadius: tokens.borderRadius.md,
+                                padding: tokens.spacing.sm,
+                                fontSize: tokens.typography.base
+                            }}
+                        />
+                    </View>
 
-                {/* Amount and Currency */}
-                <View className="mb-4">
-                    <Text className="text-sm font-medium text-gray-700 mb-2">Amount</Text>
-                    <View className="flex-row space-x-3">
-                        <View className="flex-1">
+                    {/* Description Input */}
+                    <View style={{ marginBottom: tokens.spacing.lg }}>
+                        <Text style={{ fontSize: tokens.typography.base, fontWeight: '600', marginBottom: tokens.spacing.sm }}>
+                            Description
+                        </Text>
+                        <TextInput
+                            value={description}
+                            onChangeText={setDescription}
+                            placeholder="e.g., Dinner at restaurant"
+                            style={{
+                                borderWidth: 1,
+                                borderColor: '#D1D5DB',
+                                borderRadius: tokens.borderRadius.md,
+                                padding: tokens.spacing.sm,
+                                fontSize: tokens.typography.base
+                            }}
+                        />
+                    </View>
+
+                    {/* Participants */}
+                    <View style={{ marginBottom: tokens.spacing.lg }}>
+                        <Text style={{ fontSize: tokens.typography.base, fontWeight: '600', marginBottom: tokens.spacing.sm }}>
+                            Participants
+                        </Text>
+
+                        {/* Add Participant */}
+                        <View style={{ flexDirection: 'row', marginBottom: tokens.spacing.sm }}>
                             <TextInput
-                                value={amount}
-                                onChangeText={setAmount}
-                                placeholder="0.00"
-                                keyboardType="numeric"
-                                className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
+                                value={newParticipant}
+                                onChangeText={setNewParticipant}
+                                placeholder="0x... wallet address"
+                                style={{
+                                    flex: 1,
+                                    borderWidth: 1,
+                                    borderColor: '#D1D5DB',
+                                    borderRadius: tokens.borderRadius.md,
+                                    padding: tokens.spacing.sm,
+                                    fontSize: tokens.typography.sm,
+                                    marginRight: tokens.spacing.sm
+                                }}
                             />
+                            <TouchableOpacity
+                                onPress={addParticipant}
+                                style={{
+                                    backgroundColor: '#F97316',
+                                    borderRadius: tokens.borderRadius.md,
+                                    paddingHorizontal: tokens.spacing.md,
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <Text style={{ color: 'white', fontWeight: 'bold' }}>Add</Text>
+                            </TouchableOpacity>
                         </View>
-                        <TouchableOpacity className="border border-gray-300 rounded-lg px-4 py-3 min-w-[80px] items-center justify-center">
-                            <Text className="text-gray-700 font-medium">{currency}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
 
-                {/* Description */}
-                <View className="mb-4">
-                    <Text className="text-sm font-medium text-gray-700 mb-2">Description</Text>
-                    <TextInput
-                        value={description}
-                        onChangeText={setDescription}
-                        placeholder="Dinner, concert tickets, etc."
-                        className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                    />
-                </View>
-
-                {/* Participants */}
-                <View className="mb-6">
-                    <View className="flex-row items-center justify-between mb-2">
-                        <Text className="text-sm font-medium text-gray-700">Participants</Text>
-                        <TouchableOpacity
-                            onPress={addParticipant}
-                            className="flex-row items-center"
-                        >
-                            <Ionicons name="add-circle" size={20} color="#F97316" />
-                            <Text className="text-orange-600 ml-1 font-medium">Add</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View className="space-y-3">
+                        {/* Participant List */}
                         {participants.map((participant, index) => (
-                            <View key={index} className="flex-row items-center space-x-3">
-                                <View className="flex-1">
-                                    <TextInput
-                                        value={participant}
-                                        onChangeText={(text) => updateParticipant(index, text)}
-                                        placeholder="0x... wallet address"
-                                        className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                                        autoCapitalize="none"
-                                    />
-                                </View>
-                                {participants.length > 1 && (
-                                    <TouchableOpacity
-                                        onPress={() => removeParticipant(index)}
-                                        className="p-2"
-                                    >
-                                        <Ionicons name="trash" size={20} color="#EF4444" />
-                                    </TouchableOpacity>
-                                )}
+                            <View key={index} style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                backgroundColor: '#F9FAFB',
+                                padding: tokens.spacing.sm,
+                                borderRadius: tokens.borderRadius.md,
+                                marginBottom: tokens.spacing.xs
+                            }}>
+                                <Text style={{ fontSize: tokens.typography.sm, flex: 1 }}>
+                                    {participant}
+                                </Text>
+                                <TouchableOpacity onPress={() => removeParticipant(participant)}>
+                                    <Ionicons name="close-circle" size={20} color="#EF4444" />
+                                </TouchableOpacity>
                             </View>
                         ))}
                     </View>
-                </View>
+
+                    {/* Summary */}
+                    {amount && participants.length > 0 && (
+                        <View style={{
+                            backgroundColor: '#F0FDF4',
+                            padding: tokens.spacing.md,
+                            borderRadius: tokens.borderRadius.md,
+                            marginBottom: tokens.spacing.lg
+                        }}>
+                            <Text style={{ fontSize: tokens.typography.base, fontWeight: 'bold', color: '#10B981' }}>
+                                Each person pays: ${(parseFloat(amount) / participants.length).toFixed(2)}
+                            </Text>
+                        </View>
+                    )}
+                </ScrollView>
 
                 {/* Create Button */}
-                <TouchableOpacity
-                    onPress={createSplit}
-                    disabled={isLoading}
-                    className={`py-4 rounded-lg items-center ${isLoading ? 'bg-gray-300' : 'bg-orange-500'
-                        }`}
-                >
-                    {isLoading ? (
-                        <View className="flex-row items-center">
-                            <View className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-2" />
-                            <Text className="text-gray-600 font-semibold">Creating...</Text>
-                        </View>
-                    ) : (
-                        <Text className="text-white font-semibold text-lg">Create Split</Text>
-                    )}
-                </TouchableOpacity>
+                <View style={{ padding: tokens.spacing.md }}>
+                    <TouchableOpacity
+                        onPress={handleSplit}
+                        style={{
+                            backgroundColor: '#10B981',
+                            borderRadius: tokens.borderRadius.md,
+                            paddingVertical: tokens.spacing.md,
+                            alignItems: 'center'
+                        }}
+                    >
+                        <Text style={{ color: 'white', fontSize: tokens.typography.base, fontWeight: 'bold' }}>
+                            Create Payment Split
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </View>
-        </View>
+        </Modal>
     );
 };

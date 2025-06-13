@@ -49,7 +49,7 @@ export const CreateBottomSheet: React.FC<CreateBottomSheetProps> = ({
             id: 'agent',
             title: 'Chat with AI Agent',
             subtitle: 'Get help from specialized AI agents',
-            icon: 'robot',
+            icon: 'person',
             color: '#EF4444',
             onPress: () => {
                 onClose();
