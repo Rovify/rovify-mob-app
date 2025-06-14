@@ -7,11 +7,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from '../src/hooks/useFonts';
 import { initializeStores } from '../src/store';
-import '../src/utils/polyfills';
+import { MetaMaskProvider } from '@metamask/sdk-react-native';
+import { Platform } from 'react-native';
+import * as Device from 'expo-device';
 
 export default function RootLayout() {
   const { fontsLoaded, fontError } = useFonts();
   const [storesInitialized, setStoresInitialized] = useState(false);
+  const isRealDevice = Device.isDevice;
+  const isIOSSimulator = Platform.OS === 'ios' && !isRealDevice;
 
   useEffect(() => {
     const initialize = async () => {
@@ -55,71 +59,91 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          gestureEnabled: true,
-          animation: 'slide_from_right'
+    isIOSSimulator ? (
+      // No MetaMaskProvider in simulator
+      <SafeAreaProvider>
+        <Stack screenOptions={{ headerShown: false }}>{/* Screens */}</Stack>
+        <StatusBar style="dark" />
+      </SafeAreaProvider>
+    ) : (
+      <MetaMaskProvider
+        sdkOptions={{
+          dappMetadata: {
+            name: 'Rovify',
+            url: 'https://rovify.com',
+            iconUrl: '',
+            scheme: ''
+          },
         }}
       >
-        {/* Initial flow */}
-        <Stack.Screen name="index" />
-        <Stack.Screen
-          name="splash"
-          options={{
-            gestureEnabled: false,
-            animation: 'fade'
-          }}
-        />
-        <Stack.Screen
-          name="onboarding"
-          options={{
-            gestureEnabled: false,
-            animation: 'slide_from_right'
-          }}
-        />
+        <SafeAreaProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              gestureEnabled: true,
+              animation: 'slide_from_right'
+            }}
+          >
+            {/* Initial flow */}
+            <Stack.Screen name="index" />
+            <Stack.Screen
+              name="splash"
+              options={{
+                gestureEnabled: false,
+                animation: 'fade'
+              }}
+            />
+            <Stack.Screen
+              name="onboarding"
+              options={{
+                gestureEnabled: false,
+                animation: 'slide_from_right'
+              }}
+            />
 
-        {/* Auth flow */}
-        <Stack.Screen
-          name="auth/connect"
-          options={{
-            presentation: 'modal',
-            animation: 'slide_from_bottom'
-          }}
-        />
+            {/* Auth flow */}
+            <Stack.Screen
+              name="auth/connect"
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom'
+              }}
+            />
 
-        {/* Main app */}
-        <Stack.Screen
-          name="(tabs)"
-          options={{
-            gestureEnabled: false,
-            animation: 'fade'
-          }}
-        />
+            {/* Main app */}
+            <Stack.Screen
+              name="(tabs)"
+              options={{
+                gestureEnabled: false,
+                animation: 'fade'
+              }}
+            />
 
-        {/* Other screens */}
-        <Stack.Screen name="chat/[topic]" />
-        <Stack.Screen name="agent/[id]" />
-        <Stack.Screen
-          name="mini-app/[id]"
-          options={{
-            presentation: 'modal',
-            animation: 'slide_from_bottom'
-          }}
-        />
-        <Stack.Screen name="event/[id]" />
-        <Stack.Screen name="map/index" />
+            {/* Other screens */}
+            <Stack.Screen name="chat/[topic]" />
+            <Stack.Screen name="agent/[id]" />
+            <Stack.Screen
+              name="mini-app/[id]"
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom'
+              }}
+            />
+            <Stack.Screen name="event/[id]" />
+            <Stack.Screen name="map/index" />
 
-        <Stack.Screen name="auth/connect" options={{ presentation: 'modal' }} />
-        {/* <Stack.Screen name="chat/[topic]" options={{ gestureEnabled: true }} />
+            {/* <Stack.Screen name="auth/connect" options={{ presentation: 'modal' }} /> */}
+            {/* <Stack.Screen name="chat/[topic]" options={{ gestureEnabled: true }} />
           <Stack.Screen name="agent/[id]" options={{ gestureEnabled: true }} />
           <Stack.Screen name="agent/marketplace" options={{ gestureEnabled: true }} />
           <Stack.Screen name="mini-app/[id]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="event/[id]" options={{ gestureEnabled: true }} />
           <Stack.Screen name="map/index" options={{ gestureEnabled: true }} /> */}
-      </Stack>
-      <StatusBar style="dark" />
-    </SafeAreaProvider>
+          </Stack>
+          <StatusBar style="dark" />
+        </SafeAreaProvider>
+      </MetaMaskProvider>
+    )
+
   );
 }

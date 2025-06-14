@@ -33,7 +33,7 @@ interface CustomHeaderProps {
 
     // Actions
     rightActions?: Array<{
-        icon: string;
+        icon: keyof typeof Ionicons.glyphMap;
         onPress: () => void;
         badge?: number;
     }>;
@@ -125,6 +125,10 @@ export const CustomHeader: React.FC<CustomHeaderProps> = ({
         return textColor;
     };
 
+    // Safe user initials
+    const safeUserInitials = userInitials || 'U';
+    const displayInitials = safeUserInitials.charAt(0).toUpperCase();
+
     return (
         <>
             {/* Status Bar */}
@@ -210,7 +214,7 @@ export const CustomHeader: React.FC<CustomHeaderProps> = ({
                                             fontWeight: 'bold'
                                         }}
                                     >
-                                        {userInitials}
+                                        {displayInitials}
                                     </Text>
                                 </View>
 
@@ -231,7 +235,7 @@ export const CustomHeader: React.FC<CustomHeaderProps> = ({
                                                 fontWeight: '600'
                                             }}
                                         >
-                                            {location}
+                                            {String(location)}
                                         </Text>
                                     </View>
                                 )}
@@ -249,7 +253,7 @@ export const CustomHeader: React.FC<CustomHeaderProps> = ({
                                     }}
                                     numberOfLines={1}
                                 >
-                                    {title}
+                                    {String(title)}
                                 </Text>
                                 {subtitle && (
                                     <Text
@@ -260,7 +264,7 @@ export const CustomHeader: React.FC<CustomHeaderProps> = ({
                                         }}
                                         numberOfLines={1}
                                     >
-                                        {subtitle}
+                                        {String(subtitle)}
                                     </Text>
                                 )}
                             </View>
@@ -269,42 +273,53 @@ export const CustomHeader: React.FC<CustomHeaderProps> = ({
 
                     {/* Right Actions */}
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        {rightActions.map((action, index) => (
-                            <TouchableOpacity
-                                key={index}
-                                onPress={action.onPress}
-                                style={{
-                                    width: 40,
-                                    height: 40,
-                                    borderRadius: 20,
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginLeft: 8,
-                                    position: 'relative'
-                                }}
-                            >
-                                <Ionicons name={action.icon as any} size={24} color={getTextColor()} />
-                                {action.badge && action.badge > 0 && (
-                                    <View
-                                        style={{
-                                            position: 'absolute',
-                                            top: 6,
-                                            right: 6,
-                                            backgroundColor: '#EF4444',
-                                            borderRadius: 10,
-                                            minWidth: 20,
-                                            height: 20,
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}
-                                    >
-                                        <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
-                                            {action.badge > 99 ? '99+' : action.badge}
-                                        </Text>
-                                    </View>
-                                )}
-                            </TouchableOpacity>
-                        ))}
+                        {Array.isArray(rightActions) && rightActions.map((action, index) => {
+                            // Ensure action is valid
+                            if (!action || typeof action.onPress !== 'function') {
+                                return null;
+                            }
+
+                            return (
+                                <TouchableOpacity
+                                    key={index}
+                                    onPress={action.onPress}
+                                    style={{
+                                        width: 40,
+                                        height: 40,
+                                        borderRadius: 20,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginLeft: 8,
+                                        position: 'relative'
+                                    }}
+                                >
+                                    <Ionicons
+                                        name={action.icon}
+                                        size={24}
+                                        color={getTextColor()}
+                                    />
+                                    {(action.badge !== undefined && action.badge !== null && action.badge > 0) && (
+                                        <View
+                                            style={{
+                                                position: 'absolute',
+                                                top: 6,
+                                                right: 6,
+                                                backgroundColor: '#EF4444',
+                                                borderRadius: 10,
+                                                minWidth: 20,
+                                                height: 20,
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}
+                                        >
+                                            <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
+                                                {action.badge > 99 ? '99+' : String(action.badge)}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
                 </View>
             </View>

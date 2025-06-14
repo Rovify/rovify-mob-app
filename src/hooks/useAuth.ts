@@ -1,104 +1,38 @@
-import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
-import { BaseWalletService } from '../services/wallet/baseWallet';
 import { useAuthStore } from '../store/authStore';
+import { useMobileWallet } from './useWallet';
 
 export const useAuth = () => {
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const mobileWallet = useMobileWallet();
+  const authStore = useAuthStore();
 
-  const {
-    isAuthenticated,
-    address,
-    signer,
-    provider,
-    balance,
-    setAuthenticated,
-    setAddress,
-    setSigner,
-    setProvider,
-    setBalance,
-    clearAuth
-  } = useAuthStore();
+  // Sync mobile wallet state with auth store
+  const connectWallet = async (walletType: 'metamask' | 'coinbase') => {
+    await mobileWallet.connect(walletType);
 
-  const walletService = new BaseWalletService();
-
-  const connectWallet = async () => {
-    setIsConnecting(true);
-    setError(null);
-
-    try {
-      const { address, signer, provider } = await walletService.connectWallet();
-      const balance = await walletService.getBalance(address);
-
-      setAddress(address);
-      setSigner(signer);
-      setProvider(provider);
-      setBalance(balance);
-      setAuthenticated(true);
-
-      console.log('✅ Wallet connected:', { address, balance });
-    } catch (err: any) {
-      setError(err.message);
-      console.error('❌ Wallet connection failed:', err);
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const disconnectWallet = async () => {
-    clearAuth();
-    console.log('🔌 Wallet disconnected');
-  };
-
-  const sendTransaction = async (to: string, amount: string) => {
-    if (!address) throw new Error('Wallet not connected');
-
-    try {
-      const txHash = await walletService.sendTransaction(to, amount);
-
-      // Update balance after transaction
-      const newBalance = await walletService.getBalance(address);
-      setBalance(newBalance);
-
-      return txHash;
-    } catch (error) {
-      console.error('Transaction failed:', error);
-      throw error;
-    }
-  };
-
-  // Auto-connect on mount if previously connected
-  useEffect(() => {
-    const autoConnect = async () => {
-      if (window.ethereum && !isAuthenticated) {
-        try {
-          const accounts = await window.ethereum.request({
-            method: 'eth_accounts'
-          });
-
-          if (accounts.length > 0) {
-            await connectWallet();
-          }
-        } catch (error) {
-          console.log('Auto-connect failed:', error);
-        }
+    if (mobileWallet.isConnected) {
+      authStore.setAuthenticated(true);
+      if (mobileWallet.address) {
+        authStore.setAddress(mobileWallet.address);
       }
-    };
+      authStore.setProvider(mobileWallet.provider);
+      if (mobileWallet.balance !== null) {
+        authStore.setBalance(mobileWallet.balance);
+      }
+    }
+  };
 
-    autoConnect();
-  }, [isAuthenticated]);
+  const disconnectWallet = () => {
+    mobileWallet.disconnect();
+    authStore.clearAuth();
+  };
 
   return {
-    isAuthenticated,
-    address,
-    signer,
-    provider,
-    balance,
-    isConnecting,
-    error,
+    ...mobileWallet,
+    isAuthenticated: mobileWallet.isConnected,
     connectWallet,
     disconnectWallet,
-    sendTransaction
+    // Expose individual wallet connection methods
+    connectMetaMask: () => connectWallet('metamask'),
+    connectCoinbase: () => connectWallet('coinbase'),
   };
 };

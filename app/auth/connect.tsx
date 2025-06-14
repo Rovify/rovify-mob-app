@@ -1,225 +1,309 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  SafeAreaView,
+  StatusBar
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../src/components/layout/ScreenWrapper';
-import { useAuth } from '../../src/hooks/useAuth';
 import { getDeviceInfo, getDesignTokens } from '../../src/utils/responsive';
-import { CustomHeader } from '@/components/layout/Header';
+import { useMobileWallet } from '@/hooks/useWallet';
+import { Platform } from 'react-native';
+import * as Device from 'expo-device';
 
 export default function ConnectWalletScreen() {
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
-  const { connectWallet, isConnecting } = useAuth();
+  const { connect, isConnecting, error } = useMobileWallet();
   const device = getDeviceInfo();
   const tokens = getDesignTokens();
+  const isIOSSim = Platform.OS === 'ios' && !Device.isDevice;
+  const isAndroidEmu = Platform.OS === 'android' && !Device.isDevice;
+
 
   const walletOptions = [
     {
-      id: 'metamask',
-      name: 'MetaMask',
-      icon: 'wallet',
-      description: 'Connect using MetaMask browser extension',
-      available: true
+      id: 'coinbase',
+      name: 'Coinbase',
+      icon: 'card-outline',
+      available: true,
+      color: '#0052FF'
     },
     {
-      id: 'coinbase',
-      name: 'Coinbase Wallet',
-      icon: 'card',
-      description: 'Connect using Coinbase Wallet',
-      available: true
+      id: 'metamask',
+      name: 'MetaMask',
+      icon: 'wallet-outline',
+      available: !(isIOSSim || isAndroidEmu),
+      color: '#F6851B'
+    },
+    {
+      id: 'rainbow',
+      name: 'Rainbow',
+      icon: 'color-palette-outline',
+      available: false,
+      color: '#FF6B6B'
     },
     {
       id: 'walletconnect',
-      name: 'WalletConnect',
-      icon: 'scan',
-      description: 'Scan with WalletConnect compatible wallet',
-      available: false
+      name: 'Wallet Connect',
+      icon: 'scan-outline',
+      available: false,
+      color: '#3B99FC'
+    },
+    {
+      id: 'phantom',
+      name: 'Phantom',
+      icon: 'diamond-outline',
+      available: false,
+      color: '#AB9FF2'
+    },
+    {
+      id: 'other',
+      name: 'Other Wallets',
+      icon: 'ellipsis-horizontal',
+      available: false,
+      color: '#8E8E93'
     }
   ];
 
   const handleConnectWallet = async (walletId: string) => {
+    if (!walletOptions.find(w => w.id === walletId)?.available) return;
+
     setSelectedWallet(walletId);
 
     try {
-      await connectWallet();
+      const walletType = walletId === 'metamask' ? 'metamask' : 'coinbase';
+      await connect(walletType);
 
-      Alert.alert(
-        'Wallet Connected! 🎉',
-        'Your wallet is now connected to Rovify. You can start messaging on XMTP!',
-        [
-          {
-            text: 'Explore App',
-            onPress: () => router.replace('/(tabs)/explore')
-          }
-        ]
-      );
+      router.push('/explore');
     } catch (error: any) {
-      Alert.alert('Connection Failed', error.message);
+      console.error('Wallet connection failed:', error);
       setSelectedWallet(null);
     }
   };
 
   return (
-    <ScreenWrapper mode="safe" backgroundColor="white">
-      <CustomHeader
-        title="Connect Wallet"
-        subtitle="Choose your preferred wallet"
-        showBackButton
-        onBackPress={() => router.back()}
-      />
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
 
-      <View style={{ flex: 1, padding: tokens.spacing.lg }}>
-        {/* Info Section */}
+      <View style={{
+        paddingHorizontal: 24,
+        paddingTop: 20,
+        paddingBottom: 32
+      }}>
         <View style={{
-          backgroundColor: '#FEF3C7',
-          borderRadius: tokens.borderRadius.lg,
-          padding: tokens.spacing.md,
-          marginBottom: tokens.spacing.xl
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 32
         }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: tokens.spacing.sm }}>
-            <Ionicons name="information-circle" size={24} color="#D97706" />
+          <View style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            backgroundColor: '#FF6B35',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
             <Text style={{
-              fontSize: tokens.typography.base,
-              fontWeight: '600',
-              color: '#92400E',
-              marginLeft: tokens.spacing.sm
-            }}>
-              What you'll get:
-            </Text>
+              color: 'white',
+              fontSize: 18,
+              fontWeight: 'bold'
+            }}>V</Text>
           </View>
-          <View style={{ paddingLeft: tokens.spacing.lg }}>
-            <Text style={{ color: '#92400E', fontSize: tokens.typography.sm, marginBottom: 4 }}>
-              • Secure messaging via XMTP protocol
-            </Text>
-            <Text style={{ color: '#92400E', fontSize: tokens.typography.sm, marginBottom: 4 }}>
-              • Base network integration for payments
-            </Text>
-            <Text style={{ color: '#92400E', fontSize: tokens.typography.sm, marginBottom: 4 }}>
-              • Access to AI agents and mini-apps
-            </Text>
-            <Text style={{ color: '#92400E', fontSize: tokens.typography.sm }}>
-              • Join event chat rooms
-            </Text>
-          </View>
+          <Text style={{
+            fontSize: 14,
+            color: '#8E8E93'
+          }}>Step 2</Text>
         </View>
 
-        {/* Wallet Options */}
         <Text style={{
-          fontSize: tokens.typography.lg,
+          fontSize: 28,
           fontWeight: 'bold',
-          color: '#1F2937',
-          marginBottom: tokens.spacing.lg
+          color: '#1C1C1E',
+          marginBottom: 8
         }}>
-          Choose Your Wallet
+          Set up your wallet
         </Text>
-
-        <View style={{ gap: tokens.spacing.md }}>
-          {walletOptions.map((wallet) => (
-            <TouchableOpacity
-              key={wallet.id}
-              onPress={() => wallet.available && handleConnectWallet(wallet.id)}
-              disabled={!wallet.available || isConnecting}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: wallet.available ? 'white' : '#F9FAFB',
-                borderWidth: 2,
-                borderColor: selectedWallet === wallet.id ? '#F97316' : '#E5E7EB',
-                borderRadius: tokens.borderRadius.lg,
-                padding: tokens.spacing.md,
-                opacity: wallet.available ? 1 : 0.6,
-                ...tokens.shadows.sm
-              }}
-            >
-              <View style={{
-                width: 48,
-                height: 48,
-                borderRadius: tokens.borderRadius.lg,
-                backgroundColor: '#FED7AA',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: tokens.spacing.md
-              }}>
-                <Ionicons
-                  name={wallet.icon as any}
-                  size={24}
-                  color="#EA580C"
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontSize: tokens.typography.base,
-                  fontWeight: '600',
-                  color: wallet.available ? '#1F2937' : '#9CA3AF'
-                }}>
-                  {wallet.name}
-                </Text>
-                <Text style={{
-                  fontSize: tokens.typography.sm,
-                  color: wallet.available ? '#6B7280' : '#9CA3AF',
-                  marginTop: 2
-                }}>
-                  {wallet.description}
-                </Text>
-                {!wallet.available && (
-                  <Text style={{
-                    fontSize: tokens.typography.xs,
-                    color: '#F59E0B',
-                    fontWeight: '500',
-                    marginTop: 4
-                  }}>
-                    Coming Soon
-                  </Text>
-                )}
-              </View>
-
-              {isConnecting && selectedWallet === wallet.id ? (
-                <ActivityIndicator size="small" color="#F97316" />
-              ) : (
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={wallet.available ? '#9CA3AF' : '#D1D5DB'}
-                />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Security Note */}
-        <View style={{
-          marginTop: tokens.spacing.xl,
-          padding: tokens.spacing.md,
-          backgroundColor: '#F3F4F6',
-          borderRadius: tokens.borderRadius.lg
+        <Text style={{
+          fontSize: 16,
+          color: '#8E8E93',
+          lineHeight: 22
         }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: tokens.spacing.sm }}>
-            <Ionicons name="shield-checkmark" size={20} color="#10B981" />
+          Create an account to start discovering amazing events and collecting unforgettable memories
+        </Text>
+      </View>
+
+      {/* Error display */}
+      {error && (
+        <View style={{
+          backgroundColor: '#FEF2F2',
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 16,
+          borderWidth: 1,
+          borderColor: '#FECACA'
+        }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 4
+          }}>
+            <Ionicons
+              name="alert-circle-outline"
+              size={18}
+              color="#DC2626"
+            />
             <Text style={{
-              fontSize: tokens.typography.sm,
+              fontSize: 14,
               fontWeight: '600',
-              color: '#1F2937',
-              marginLeft: tokens.spacing.xs
+              color: '#DC2626',
+              marginLeft: 8
             }}>
-              Your wallet, your keys
+              Connection Failed
             </Text>
           </View>
           <Text style={{
-            fontSize: tokens.typography.sm,
-            color: '#6B7280',
+            fontSize: 13,
+            color: '#991B1B',
             lineHeight: 18
           }}>
-            Rovify never stores your private keys. All transactions are signed directly by your wallet.
+            {error}
           </Text>
         </View>
+      )}
+
+      {/* Wallet Options */}
+      <View style={{
+        flex: 1,
+        paddingHorizontal: 24
+      }}>
+        {walletOptions.map((wallet) => (
+          <TouchableOpacity
+            key={wallet.id}
+            onPress={() => handleConnectWallet(wallet.id)}
+            disabled={!wallet.available || isConnecting}
+            activeOpacity={0.7}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 16,
+              paddingHorizontal: 20,
+              marginBottom: 12,
+              backgroundColor: 'white',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: selectedWallet === wallet.id ? '#FF6B35' : '#E5E5EA',
+              opacity: wallet.available ? 1 : 0.5,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.05,
+              shadowRadius: 4,
+              elevation: 2,
+            }}
+          >
+            <View style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: `${wallet.color}15`,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 16
+            }}>
+              <Ionicons
+                name={wallet.icon as any}
+                size={24}
+                color={wallet.color}
+              />
+            </View>
+
+            <Text style={{
+              flex: 1,
+              fontSize: 16,
+              fontWeight: '600',
+              color: wallet.available ? '#1C1C1E' : '#8E8E93'
+            }}>
+              {wallet.name}
+            </Text>
+
+            {isConnecting && selectedWallet === wallet.id ? (
+              <ActivityIndicator size="small" color="#FF6B35" />
+            ) : wallet.available ? (
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color="#C7C7CC"
+              />
+            ) : (
+              <Text style={{
+                fontSize: 12,
+                color: '#FF9500',
+                fontWeight: '500'
+              }}>
+                {wallet.id === 'metamask' && (isIOSSim || isAndroidEmu) ? 'N/A' : 'Soon'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        ))}
       </View>
-    </ScreenWrapper>
+
+      {/* Footer */}
+      <View style={{
+        paddingHorizontal: 24,
+        paddingBottom: 34,
+        paddingTop: 20
+      }}>
+        <View style={{
+          backgroundColor: '#F2F2F7',
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 20
+        }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 8
+          }}>
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={18}
+              color="#34C759"
+            />
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: '#1C1C1E',
+              marginLeft: 8
+            }}>
+              Secure & Private
+            </Text>
+          </View>
+          <Text style={{
+            fontSize: 13,
+            color: '#8E8E93',
+            lineHeight: 18
+          }}>
+            Your private keys never leave your wallet. Rovify uses industry-standard security protocols.
+          </Text>
+        </View>
+
+        <Text style={{
+          fontSize: 12,
+          color: '#8E8E93',
+          textAlign: 'center',
+          lineHeight: 16
+        }}>
+          By continuing, you agree to our{' '}
+          <Text style={{ color: '#FF6B35' }}>Terms of Service</Text>
+          {' '}and{' '}
+          <Text style={{ color: '#FF6B35' }}>Privacy Policy</Text>
+        </Text>
+      </View>
+    </SafeAreaView>
   );
 }

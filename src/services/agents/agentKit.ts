@@ -2,7 +2,7 @@ import { CdpWalletProvider, AgentKit } from '@coinbase/agentkit';
 import { ChatOpenAI } from '@langchain/openai';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { getLangChainTools } from '@coinbase/agentkit-langchain';
-import baseWalletService from '../wallet/baseWallet';
+import baseWalletService from '../wallet/coinBaseWallet';
 import xmtpService from '../xmtp';
 
 export interface RealAgent {
